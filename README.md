@@ -1,6 +1,9 @@
 # FinTechX: Role-Based LLM-Powered Company Assistant
 
-FinTechX is a sophisticated RAG (Retrieval-Augmented Generation) chatbot designed to serve as an organizational intelligence layer. It implements **Role-Based Access Control (RBAC)** to ensure that users only retrieve information pertinent to their specific department or general company updates.
+## 📖 About the Project
+**FinTechX** is an advanced AI-driven organizational assistant built to bridge the gap between internal knowledge and secure accessibility. In modern enterprises, data is often siloed and sensitive; FinTechX solves this by using a high-performance **Retrieval-Augmented Generation (RAG)** architecture coupled with a robust **Role-Based Access Control (RBAC)** system. 
+
+Whether it's an engineer searching for technical documentation, an HR lead reviewing policies, or an executive looking for financial summaries, FinTechX ensures that the right information reaches the right person—instantly and securely. By leveraging the speed of **Groq** and the intelligence of **Llama 3.1**, it delivers precise, context-aware answers without compromising departmental data privacy.
 
 ## 🚀 Features
 
