@@ -2,21 +2,21 @@ import React, { useState, useEffect, useRef } from "react";
 import "./index.css";
 import ReactMarkdown from "react-markdown";
 
-const ROLI_CHOICES = ["Admin", "Engineering", "Finance", "HR", "Marketing"];
+const ROLI_CHOICES = ["Admin", "Engineering", "Finance", "HR", "Marketing", "General"];
 
 export default function App() {
-  const [role, setRole] = useState("Engineering");
-  const [messages, setMessages] = useState([
-    {
-      sender: "bot",
-      text: "Welcome to FinTechX. Please select your role above and ask me anything about the FinTech Technologies"
-    }
-  ]);
+  const [authUser, setAuthUser] = useState(null); // { username: "", role: "" }
+  const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
   const [isStarted, setIsStarted] = useState(false);
   const messagesEndRef = useRef(null);
+
+  // Auth States
+  const [isLoginMode, setIsLoginMode] = useState(true);
+  const [authForm, setAuthForm] = useState({ username: "", password: "", role: "Engineering" });
+  const [authError, setAuthError] = useState("");
+  const [isAuthRoleDropdownOpen, setIsAuthRoleDropdownOpen] = useState(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -26,10 +26,62 @@ export default function App() {
     scrollToBottom();
   }, [messages, isTyping]);
 
-  const handleSendMessage = async () => {
-    if (!inputMessage.trim()) return;
+  useEffect(() => {
+    const savedUser = localStorage.getItem("fintechUser");
+    if (savedUser) {
+      const parsed = JSON.parse(savedUser);
+      setAuthUser(parsed);
+      setMessages([
+        {
+          sender: "bot",
+          text: `Welcome back, ${parsed.username}. You are logged in as **${parsed.role}**. Ask me anything about the FinTech Technologies.`
+        }
+      ]);
+    }
+  }, []);
 
-    // Add user message to UI
+  const handleAuthSubmit = async (e) => {
+    e.preventDefault();
+    setAuthError("");
+    const endpoint = isLoginMode ? "/api/login" : "/api/signup";
+    
+    try {
+      const res = await fetch(`http://127.0.0.1:5000${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(authForm)
+      });
+      
+      const data = await res.json();
+      
+      if (!res.ok) {
+        setAuthError(data.error || "An error occurred");
+      } else {
+        const user = { username: data.username, role: data.role };
+        setAuthUser(user);
+        localStorage.setItem("fintechUser", JSON.stringify(user));
+        setMessages([
+          {
+            sender: "bot",
+            text: `Welcome to FinTechX, ${user.username}. You are authenticated as **${user.role}**. Ask me anything!`
+          }
+        ]);
+      }
+    } catch (err) {
+      setAuthError("Could not connect to backend server.");
+    }
+  };
+
+  const handleLogout = () => {
+    setAuthUser(null);
+    localStorage.removeItem("fintechUser");
+    setMessages([]);
+    setAuthForm({ username: "", password: "", role: "Engineering" });
+  };
+
+  const handleSendMessage = async () => {
+    if (!inputMessage.trim() || !authUser) return;
+
     const newMessages = [...messages, { sender: "user", text: inputMessage }];
     setMessages(newMessages);
     setInputMessage("");
@@ -38,12 +90,10 @@ export default function App() {
     try {
       const response = await fetch("http://127.0.0.1:5000/api/chat", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: inputMessage,
-          role: role
+          role: authUser.role
         })
       });
 
@@ -63,14 +113,14 @@ export default function App() {
     } catch (err) {
       setMessages((prev) => [
         ...prev,
-        { sender: "error", text: "Cannot connect to Backend Server. Please make sure Flask is running on port 5000." }
+        { sender: "error", text: "Cannot connect to Backend Server." }
       ]);
     } finally {
       setIsTyping(false);
     }
   };
 
-  if (!isStarted) {
+  if (!isStarted && !authUser) {
     return (
       <div className="landing-container">
         <div className="landing-content">
@@ -87,6 +137,75 @@ export default function App() {
     );
   }
 
+  if (!authUser) {
+    return (
+      <div className="landing-container">
+        <div className="landing-content">
+          <img src="/logo.png" alt="FinTechX Logo" className="landing-logo" />
+          <h1 className="landing-title">FinTechX</h1>
+          <p className="landing-subtitle">Authenticate to access Organizational Intelligence</p>
+          
+          <form className="auth-form" onSubmit={handleAuthSubmit}>
+            <h2>{isLoginMode ? "Login" : "Create Account"}</h2>
+            {authError && <div className="auth-error">{authError}</div>}
+            
+            <input 
+              type="text" 
+              placeholder="Username" 
+              value={authForm.username}
+              onChange={e => setAuthForm({...authForm, username: e.target.value})}
+              required
+            />
+            <input 
+              type="password" 
+              placeholder="Password" 
+              value={authForm.password}
+              onChange={e => setAuthForm({...authForm, password: e.target.value})}
+              required
+            />
+            
+            {!isLoginMode && (
+              <div className="custom-dropdown" style={{ width: '100%', textAlign: 'left', position: 'relative' }}>
+                <div
+                  className="dropdown-selected"
+                  style={{ padding: '12px', boxSizing: 'border-box' }}
+                  onClick={() => setIsAuthRoleDropdownOpen(!isAuthRoleDropdownOpen)}
+                >
+                  {authForm.role}
+                  <span className="dropdown-arrow">▼</span>
+                </div>
+                {isAuthRoleDropdownOpen && (
+                  <div className="dropdown-options" style={{ top: '100%', left: 0, right: 0, marginTop: '5px' }}>
+                    {ROLI_CHOICES.map((r) => (
+                      <div
+                        key={r}
+                        className={`dropdown-option ${r === authForm.role ? "active" : ""}`}
+                        onClick={() => {
+                          setAuthForm({...authForm, role: r});
+                          setIsAuthRoleDropdownOpen(false);
+                        }}
+                      >
+                        {r}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            
+            <button type="submit" className="auth-submit-btn">
+              {isLoginMode ? "Sign In" : "Sign Up"}
+            </button>
+            
+            <p className="auth-toggle" onClick={() => {setIsLoginMode(!isLoginMode); setAuthError("");}}>
+              {isLoginMode ? "Need an account? Sign up" : "Already have an account? Log in"}
+            </p>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="app-container">
       <header className="app-header">
@@ -95,32 +214,11 @@ export default function App() {
           <h1>FinTechX</h1>
         </div>
         <div className="role-selector">
-          <label>Simulation Role: </label>
-          <div className="custom-dropdown">
-            <div
-              className="dropdown-selected"
-              onClick={() => setIsRoleDropdownOpen(!isRoleDropdownOpen)}
-            >
-              {role}
-              <span className="dropdown-arrow">▼</span>
-            </div>
-            {isRoleDropdownOpen && (
-              <div className="dropdown-options">
-                {ROLI_CHOICES.map((r) => (
-                  <div
-                    key={r}
-                    className={`dropdown-option ${r === role ? "active" : ""}`}
-                    onClick={() => {
-                      setRole(r);
-                      setIsRoleDropdownOpen(false);
-                    }}
-                  >
-                    {r}
-                  </div>
-                ))}
-              </div>
-            )}
+          <div className="user-info">
+            <span className="logged-user">{authUser.username}</span>
+            <span className="logged-role">Role: {authUser.role}</span>
           </div>
+          <button className="logout-btn" onClick={handleLogout}>Logout</button>
         </div>
       </header>
 
@@ -151,7 +249,7 @@ export default function App() {
       <div className="input-container">
         <input
           type="text"
-          placeholder={`Ask a question as ${role}...`}
+          placeholder={`Ask a question as ${authUser.role}...`}
           value={inputMessage}
           onChange={(e) => setInputMessage(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
