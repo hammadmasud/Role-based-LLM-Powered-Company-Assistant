@@ -90,3 +90,5 @@ npm install
 
 ## 🔒 Security Note
 This project contains a `.gitignore` that strictly excludes `.env` files and environment sensitive data. Ensure you never commit your `GROQ_API_KEY` to public repositories.
+
+<!-- gitpulse:contribution index="1" timestamp="2026-05-10" -->
